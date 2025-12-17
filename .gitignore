@@ -1,3 +1,5 @@
+/dist
+
 *~
 *.o
 *.obj
@@ -96,3 +98,5 @@ test-suite.log
 .*.sw?
 
 *.pdb
+
+
