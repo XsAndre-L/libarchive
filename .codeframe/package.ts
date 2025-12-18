@@ -1,24 +1,25 @@
 import {
 	BuildType,
-	OUTPUT_DIR,
-} from "../../../../src/core/types/package-config.ts";
-import { runPackageAction } from "../../../../src/commands/packages.ts";
+	CPP_OUTPUT_DIR,
+	runPackageAction,
+	CMAKE_TOOLS,
+	getHostSysrootPath,
+	SYSROOT,
+	PACKAGE_DIR,
+} from "../../../../src/providers/package.privider.ts";
 
 import { resolve, join } from "node:path";
 import { argv } from "node:process";
 
 export const build = (cwd: string = process.cwd()): BuildType => {
-	const TOOLCHAINS = resolve(cwd, "../../../toolchains/cmake-tools");
-	const PACKAGES = resolve(cwd, "../../../packages/cpp-packages");
+	const { windows_x86_64, windows_aarch64, linux_x86_64, linux_aarch64 } =
+		SYSROOT;
+
+	const HOST_SYSROOT = getHostSysrootPath();
+	const CLANG = join(HOST_SYSROOT, "bin/clang.exe").replace(/\\/g, "/");
+	const CLANGXX = join(HOST_SYSROOT, "bin/clang++.exe").replace(/\\/g, "/");
+	const PACKAGES = resolve(PACKAGE_DIR, "cpp-packages");
 	const ZSTD_LIB = resolve(PACKAGES, "zstd");
-	const toolchain_clang = resolve(cwd, "../../../toolchains/windows.x86_64");
-	const win_sysroot = resolve(cwd, "../../../toolchains/windows.x86_64");
-	const win_aarch64_sysroot = resolve(
-		cwd,
-		"../../../toolchains/windows.aarch64"
-	);
-	const CLANG = join(toolchain_clang, "bin/clang.exe").replace(/\\/g, "/");
-	const CLANGXX = join(toolchain_clang, "bin/clang++.exe").replace(/\\/g, "/");
 
 	// Common flags to keep the build minimal and focused on the library
 	const LIBARCHIVE_COMMON_FLAGS = `\
@@ -70,8 +71,8 @@ export const build = (cwd: string = process.cwd()): BuildType => {
 		type: "architectures",
 		windows_x86_64: {
 			configStep: `cmake -S . -B dist/windows/x86_64 -G Ninja \
-			-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAINS}/windows_x86-64.cmake \
-			-DCMAKE_SYSROOT=${win_sysroot} \
+			-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLS}/windows_x86-64.cmake \
+			-DCMAKE_SYSROOT=${windows_x86_64} \
       		-DCMAKE_BUILD_TYPE=Release \
       		-DBUILD_SHARED_LIBS=OFF \
       		${LIBARCHIVE_COMMON_FLAGS} \
@@ -79,11 +80,11 @@ export const build = (cwd: string = process.cwd()): BuildType => {
       		-DCMAKE_CXX_COMPILER=${CLANGXX} \
       		-DCMAKE_C_COMPILER_TARGET=x86_64-w64-windows-gnu \
       		-DCMAKE_CXX_COMPILER_TARGET=x86_64-w64-windows-gnu \
-			-DCMAKE_INCLUDE_PATH=${win_sysroot}/include \
+			-DCMAKE_INCLUDE_PATH=${windows_x86_64}/include \
 			-DZSTD_INCLUDE_DIR=D:/ProgramFiles/zstd-v1.5.7-win64/include \
 			-DZSTD_LIBRARY=D:/ProgramFiles/zstd-v1.5.7-win64/lib/libzstd.a \
-      		-DCMAKE_PREFIX_PATH=${OUTPUT_DIR}/libarchive/windows/x86_64 \
-      		-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}/libarchive/windows/x86_64
+      		-DCMAKE_PREFIX_PATH=${CPP_OUTPUT_DIR}/libarchive/windows/x86_64 \
+      		-DCMAKE_INSTALL_PREFIX=${CPP_OUTPUT_DIR}/libarchive/windows/x86_64
       		`,
 			buildStep: `cmake --build dist/windows/x86_64 -j`,
 			installStep: `cmake --install dist/windows/x86_64`,
@@ -98,18 +99,18 @@ export const build = (cwd: string = process.cwd()): BuildType => {
 		  	-DCMAKE_RC_FLAGS=--target=aarch64-w64-mingw32 \
 		  	-DCMAKE_C_COMPILER_TARGET=aarch64-w64-windows-gnu \
 		  	-DCMAKE_CXX_COMPILER_TARGET=aarch64-w64-windows-gnu \
-			-DCMAKE_INCLUDE_PATH=${win_aarch64_sysroot}/include \
+			-DCMAKE_INCLUDE_PATH=${windows_aarch64}/include \
 			-DZSTD_INCLUDE_DIR=D:/ProgramFiles/zstd-v1.5.7-win64/include \
 			-DZSTD_LIBRARY=${ZSTD_LIB}/lib/windows/aarch64/libzstd.a \
-		  	-DCMAKE_PREFIX_PATH=${OUTPUT_DIR}/libarchive/windows/aarch64 \
-		  	-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}/libarchive/windows/aarch64
+		  	-DCMAKE_PREFIX_PATH=${CPP_OUTPUT_DIR}/libarchive/windows/aarch64 \
+		  	-DCMAKE_INSTALL_PREFIX=${CPP_OUTPUT_DIR}/libarchive/windows/aarch64
 		  	`,
 			buildStep: `cmake --build dist/windows/aarch64 -j`,
 			installStep: `cmake --install dist/windows/aarch64`,
 		},
 		linux_x86_64: {
 			configStep: `cmake -S . -B dist/linux/x86_64 -G Ninja \
-		  	-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAINS}/linux_x86-64.cmake \
+		  	-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLS}/linux_x86-64.cmake \
 		  	-DCMAKE_BUILD_TYPE=Release \
 		  	-DBUILD_SHARED_LIBS=OFF \
 		  	${LIBARCHIVE_COMMON_FLAGS} \
@@ -120,15 +121,15 @@ export const build = (cwd: string = process.cwd()): BuildType => {
 		  	-DCMAKE_CXX_COMPILER_TARGET=x86_64-unknown-linux-gnu \
 			-DZSTD_INCLUDE_DIR=${ZSTD_LIB}/include \
 			-DZSTD_LIBRARY=${ZSTD_LIB}/lib/linux/x86_64/libzstd.a \
-		  	-DCMAKE_PREFIX_PATH=${OUTPUT_DIR}/libarchive/linux/x86_64 \
-		  	-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}/libarchive/linux/x86_64
+		  	-DCMAKE_PREFIX_PATH=${CPP_OUTPUT_DIR}/libarchive/linux/x86_64 \
+		  	-DCMAKE_INSTALL_PREFIX=${CPP_OUTPUT_DIR}/libarchive/linux/x86_64
 		  	`,
 			buildStep: `cmake --build dist/linux/x86_64 -j`,
 			installStep: `cmake --install dist/linux/x86_64`,
 		},
 		linux_aarch64: {
 			configStep: `cmake -S . -B dist/linux/aarch64 -G Ninja \
-		  	-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAINS}/linux_aarch64.cmake \
+		  	-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLS}/linux_aarch64.cmake \
 		  	-DCMAKE_BUILD_TYPE=Release \
 		  	-DBUILD_SHARED_LIBS=OFF \
 		  	${LIBARCHIVE_COMMON_FLAGS} \
@@ -139,8 +140,8 @@ export const build = (cwd: string = process.cwd()): BuildType => {
 		  	-DCMAKE_CXX_COMPILER_TARGET=aarch64-unknown-linux-gnu \
 			-DZSTD_INCLUDE_DIR=${ZSTD_LIB}/include \
 			-DZSTD_LIBRARY=${ZSTD_LIB}/lib/linux/aarch64/libzstd.a \
-		  	-DCMAKE_PREFIX_PATH=${OUTPUT_DIR}/libarchive/linux/aarch64 \
-		  	-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}/libarchive/linux/aarch64
+		  	-DCMAKE_PREFIX_PATH=${CPP_OUTPUT_DIR}/libarchive/linux/aarch64 \
+		  	-DCMAKE_INSTALL_PREFIX=${CPP_OUTPUT_DIR}/libarchive/linux/aarch64
 		  	`,
 			buildStep: `cmake --build dist/linux/aarch64 -j`,
 			installStep: `cmake --install dist/linux/aarch64`,
